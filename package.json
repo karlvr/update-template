@@ -1,7 +1,7 @@
 {
-  "name": "update-template",
-  "version": "1.3.1",
-  "description": "Easily update repos created with GitHub templates",
+  "name": "@cactuslab/update-template",
+  "version": "2.0.0",
+  "description": "Easily update repos created with GitHub or local templates",
   "main": "dist/index.js",
   "bin": "dist/cli.js",
   "types": "dist/index.d.ts",
@@ -10,12 +10,14 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepublish": "npm run build",
     "start": "ts-node update.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "tsc --watch"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/koj-co/update-template.git"
+    "url": "git+https://github.com/karlvr/update-template.git"
   },
   "keywords": [
     "github",
@@ -27,11 +29,16 @@
     "typescript"
   ],
   "author": "Anand Chowdhary <mail@anandchowdhary.com>",
+  "contributors": [
+    {
+      "name": "Karl von Randow"
+    }
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/koj-co/update-template/issues"
+    "url": "https://github.com/karlvr/update-template/issues"
   },
-  "homepage": "https://github.com/koj-co/update-template#readme",
+  "homepage": "https://github.com/karlvr/update-template#readme",
   "devDependencies": {
     "@semantic-release/git": "^9.0.0",
     "@types/deep-equal": "^1.0.1",
@@ -48,5 +55,8 @@
     "fast-glob": "^3.2.4",
     "fs-extra": "^9.0.1",
     "recursive-readdir": "^2.2.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
