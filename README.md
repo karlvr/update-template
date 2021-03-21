@@ -2,24 +2,38 @@
 
 If you've created a repository using a template (see [Creating a repository from a template](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) on GitHub), it can be hard to "update" the template when new features are added, since it's not a fork. This package fixes that.
 
-[![Node CI](https://github.com/koj-co/update-template/workflows/Node%20CI/badge.svg)](https://github.com/koj-co/update-template/actions?query=workflow%3A%22Node+CI%22)
-
 ## ⭐ Get started
 
-### For repositories
+### Using a template
 
-If your repo is based on a template, you can update it using the URL of the original template repo:
+If your template is a git repostiroy, you can install or update it using the URL of the original template repo:
 
 ```bash
 npx update-template https://github.com/user/repo
 ```
 
-### For templates
+Or if your repo is based on a template in a local directory:
+
+```bash
+npx update-template ./templates/my-template
+```
+
+You can also specify multiple templates, and they will be applied sequentially.
+
+```bash
+npx update-template ./templates/my-template1 ./templates/my-template2
+```
+
+A `.update-template-changes.json` file will be created to store the changes that have been made by the
+template(s), so that when you re-run `update-template` any files or dependencies etc added by the template,
+but that are no longer in the template, will be removed.
+
+### Creating a template
 
 If you're building a template repository, add `update-template` as a dependency:
 
 ```bash
-npm install update-template
+npm install @cactuslab/update-template
 ```
 
 Then, create a `.templaterc.json` file with a list of files you'd like to overwrite:
@@ -35,26 +49,26 @@ Lastly, add an update script to your `package.json` with the URL of your reposit
 ```json
 {
   "scripts": {
-    "update-template": "update-template https://github.com/user/repo"
+    "update-template": "update-template"
   }
 }
 ```
 
 When users want to update your template, they can run `npm run update-template`
 
-If you want to sync your `package.json` and `package-lock.json` dependencies (without changing keys like the package name), you can add:
+If you want to sync your `package.json` (without changing keys like the package name), you can add any of the following
+keys to sync the corresponding parts of `package.json`:
 
 ```json
 {
-  "npmDependencies": true
-}
-```
-
-Similarly, npm scripts can be added:
-
-```json
-{
-  "npmScripts": true
+  "package": {
+    "engines": true,
+		"dependencies": true,
+		"devDependencies": true,
+		"optionalDependencies": true,
+		"peerDependencies": true,
+		"scripts": true
+  }
 }
 ```
 
