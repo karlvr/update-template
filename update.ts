@@ -10,7 +10,9 @@ import { Source, Config, Package, Changes, SourceChanges } from './types';
 const CHANGES_FILE = ".update-template-changes.json";
 
 export const update = async (): Promise<number> => {
-  const sourcePaths = process.argv.slice(2)
+  const previousChanges = await loadPreviousChanges();
+
+  const sourcePaths = findSourcePaths(process.argv.slice(2), previousChanges);
   const sources: Source[] = []
 
   /* Load sources */
@@ -34,9 +36,6 @@ export const update = async (): Promise<number> => {
   const localPackageJson: Package = await readJson(join(".", "package.json"));
   let workingPackageJson: Package = { ...localPackageJson };
 
-  const previousChanges = await loadPreviousChanges();
-  workingPackageJson = await undoPreviousPackageChanges(workingPackageJson, previousChanges);
-
   const changes: Changes = {
     sources: {},
   };
@@ -52,7 +51,6 @@ export const update = async (): Promise<number> => {
     changes.sources[source.name] = sourceChanges;
 
     const previousSourceChanges = previousChanges.sources[source.name];
-    delete previousChanges.sources[source.name];
     const previousFiles = previousSourceChanges ? previousSourceChanges.files : [];
 
     const files = (
@@ -84,7 +82,7 @@ export const update = async (): Promise<number> => {
       join(".", source.path, "package.json")
     );
 
-    workingPackageJson = applyPackageChanges(workingPackageJson, localPackageJson, templatePackageJson, config, sourceChanges);
+    workingPackageJson = applyPackageChanges(workingPackageJson, templatePackageJson, config, previousSourceChanges, sourceChanges);
 
     config.removeFiles = config.removeFiles || [];
     config.removeFiles = [...config.removeFiles, ".templaterc.json"];
@@ -94,21 +92,14 @@ export const update = async (): Promise<number> => {
       console.log(c.blue.bold(`  Removing: ${path}`));
       await remove(path);
     }
+
+    /* Remove any remaining changes, that are no longer made by templates */
+    if (previousSourceChanges) {
+      workingPackageJson = await undoPreviousTemplateChanges(workingPackageJson, source.name, previousSourceChanges);
+    }
   
     if (source.temporary) {
       await remove(join(".", source.path));
-    }
-  }
-
-  /* Remove any files from templates no longer used */
-  for (const sourcePath of Object.keys(previousChanges.sources)) {
-    console.log(c.bold.red(`${sourcePath} (removed template)`))
-
-    const sourceChanges = previousChanges.sources[sourcePath]!;
-    for (const file of sourceChanges!.files) {
-      const path = join(".", file);
-      console.log(c.blue.bold(`  Removing: ${path}`));
-      await remove(path);
     }
   }
 
@@ -129,10 +120,14 @@ export const update = async (): Promise<number> => {
   return 0;
 };
 
-async function cloneRepo(repoUrl: string): Promise<Source | undefined> {
-  if (!repoUrl.includes("@") && !repoUrl.includes("//"))
-    repoUrl = `https://github.com/${repoUrl}`;
+function findSourcePaths(argv: string[], previousChanges: Changes): string[] {
+  if (argv.length > 0) {
+    return argv;
+  }
+  return Object.keys(previousChanges.sources);
+}
 
+async function cloneRepo(repoUrl: string): Promise<Source | undefined> {
   // If this is running in a Github Actions workflow, we know the repo name
   let [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
   if (owner && repo)
@@ -160,101 +155,95 @@ async function cloneRepo(repoUrl: string): Promise<Source | undefined> {
 }
 
 async function findTemplateSource(urlOrPath: string): Promise<Source | undefined> {
-  if (!urlOrPath.includes("//")) {
-    const statResult = await stat(urlOrPath)
-    if (statResult.isDirectory()) {
-      let config: Config = {};
-      try {
-        config = await readJson(join(".", urlOrPath, ".templaterc.json"));
-      } catch (error) {
-        console.log(`${urlOrPath}: .templaterc.json config file not found`);
-      }
-      
-      return {
-        name: urlOrPath,
-        path: urlOrPath,
-        temporary: false,
-        config,
-      }
-    }
+  if (urlOrPath.includes("//")) {
+    return cloneRepo(urlOrPath);
   }
 
-  return cloneRepo(urlOrPath)
+  const statResult = await stat(urlOrPath)
+  if (statResult.isDirectory()) {
+    let config: Config = {};
+    try {
+      config = await readJson(join(".", urlOrPath, ".templaterc.json"));
+    } catch (error) {
+      console.log(`${urlOrPath}: .templaterc.json config file not found`);
+    }
+    
+    return {
+      name: urlOrPath,
+      path: urlOrPath,
+      temporary: false,
+      config,
+    }
+  }
 }
 
-function applyPackageChanges(target: Package, original: Package, template: Package, config: Config, changes: SourceChanges): Package {
+function applyPackageChanges(target: Package, template: Package, config: Config, previousChanges: SourceChanges | undefined, changes: SourceChanges): Package {
   const result: Package = { ...target };
-  if (config.package?.engines) {
-    changes.package["engines"] = template.engines;
-    result.engines = combineRecords(target.engines, template.engines);
 
+  function applyObjectChange(key: string) {
+    changes.package[key] = template[key];
+    result[key] = combineRecords(target[key], template[key]);
 
-    if (!equal(original.engines, result.engines)) {
-      console.log(c.cyan.bold(`  Updated: engines`));
+    if (previousChanges && template[key]) {
+      for (const subkey of Object.keys(template[key])) {
+        delete previousChanges.package[key][subkey];
+      }
     }
+
+    if (!equal(target[key], result[key])) {
+      console.log(c.cyan.bold(`  Updated: ${key}`));
+    }
+  }
+
+  if (config.package?.engines) {
+    applyObjectChange("engines");
   }
   if (config.npmDependencies || config.package?.dependencies) {
-    changes.package["dependencies"] = template.dependencies;
-    result.dependencies = combineRecords(target.dependencies, template.dependencies);
-
-    if (!equal(original.dependencies, result.dependencies)) {
-      console.log(c.cyan.bold(`  Updated: dependencies`));
-    }
+    applyObjectChange("dependencies");
   }
   if (config.package?.devDependencies) {
-    changes.package["devDependencies"] = template.devDependencies;
-    result.devDependencies = combineRecords(target.devDependencies, template.devDependencies);
-
-    if (!equal(original.devDependencies, result.devDependencies)) {
-      console.log(c.cyan.bold(`  Updated: devDependencies`));
-    }
+    applyObjectChange("devDependencies");
   }
   if (config.package?.optionalDependencies) {
-    changes.package["optionalDependencies"] = template.optionalDependencies;
-    result.optionalDependencies = combineRecords(target.optionalDependencies, template.optionalDependencies);
-
-    if (!equal(original.optionalDependencies, result.optionalDependencies)) {
-      console.log(c.cyan.bold(`  Updated: optionalDependencies`));
-    }
+    applyObjectChange("optionalDependencies");
   }
   if (config.package?.peerDependencies) {
-    changes.package["peerDependencies"] = template.peerDependencies;
-    result.peerDependencies = combineRecords(target.peerDependencies, template.peerDependencies);
-
-    if (!equal(original.peerDependencies, result.peerDependencies)) {
-      console.log(c.cyan.bold(`  Updated: peerDependencies`));
-    }
+    applyObjectChange("peerDependencies");
   }
   if (config.npmScripts || config.package?.scripts) {
-    changes.package["scripts"] = template.scripts;
-    result.scripts = combineRecords(target.scripts, template.scripts);
-
-    if (!equal(original.scripts, result.scripts)) {
-      console.log(c.cyan.bold(`  Updated: scripts`));
-    }
+    applyObjectChange("scripts");
   }
   return result;
 }
 
 function undoPackageChanges(target: Package, template: Package): Package {
-  const result: Package = target;
+  const result: Package = { ...target };
+
+  function applyObjectChange(key: string) {
+    result[key] = removeRecords(target[key], template[key]);
+
+    if (!equal(target[key], result[key])) {
+      console.log(c.red.bold(`  Updated: ${key}`));
+    }
+  }
+
   if (template.engines) {
-    result.engines = removeRecords(target.engines, template.engines);
+    applyObjectChange("engines");
   }
   if (template.dependencies) {
-    result.dependencies = removeRecords(target.dependencies, template.dependencies);
+    applyObjectChange("dependencies");
   }
   if (template.devDependencies) {
-    result.devDependencies = removeRecords(target.devDependencies, template.devDependencies);
+    applyObjectChange("devDependencies");
   }
   if (template.optionalDependencies) {
-    result.optionalDependencies = removeRecords(target.optionalDependencies, template.optionalDependencies);
+    applyObjectChange("optionalDependencies");
   }
   if (template.peerDependencies) {
-    result.peerDependencies = removeRecords(target.peerDependencies, template.peerDependencies);
+    applyObjectChange("peerDependencies");
   }
   if (template.scripts) {
-    result.scripts = removeRecords(target.scripts, template.scripts);
+    applyObjectChange("scripts");
   }
   return result;
 }
@@ -305,11 +294,13 @@ async function loadPreviousChanges(): Promise<Changes> {
   }
 }
 
-async function undoPreviousPackageChanges(workingPackageJson: Package, previousChanges: Changes): Promise<Package> {
-  for (const sourcePath of Object.keys(previousChanges.sources)) {
-    const changes = previousChanges.sources[sourcePath]!;
-    workingPackageJson = undoPackageChanges(workingPackageJson, changes.package);
+async function undoPreviousTemplateChanges(workingPackageJson: Package, sourcePath: string,sourceChanges: SourceChanges): Promise<Package> {
+  /* Remove any files from templates no longer used */
+  for (const file of sourceChanges.files) {
+    const path = join(".", file);
+    console.log(c.blue.bold(`  Removing: ${path}`));
+    await remove(path);
   }
 
-  return workingPackageJson;
+  return undoPackageChanges(workingPackageJson, sourceChanges.package);
 }
