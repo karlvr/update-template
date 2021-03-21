@@ -184,7 +184,7 @@ function applyPackageChanges(target: Package, template: Package, config: Config,
     changes.package[key] = template[key];
     result[key] = combineRecords(target[key], template[key]);
 
-    if (previousChanges && template[key]) {
+    if (previousChanges && previousChanges.package[key] && template[key]) {
       for (const subkey of Object.keys(template[key])) {
         delete previousChanges.package[key][subkey];
       }
