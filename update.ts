@@ -40,6 +40,16 @@ export const update = async (): Promise<number> => {
     sources: {},
   };
 
+  /* Remove any changes from templates no longer used */
+  for (const sourceName of Object.keys(previousChanges.sources)) {
+    if (!sources.find(s => s.name === sourceName)) {
+      console.log(c.red.bold(`${sourceName} (removing template)`));
+      
+      const previousSourceChanges = previousChanges.sources[sourceName]!;
+      workingPackageJson = await undoPreviousTemplateChanges(workingPackageJson, sourceName, previousSourceChanges);
+    }
+  }
+
   for (const source of sources) {
     console.log(c.bold.green(`${source.name}`))
     
