@@ -5,6 +5,7 @@ import { readJson, copyFile, remove, ensureFile, writeFile, stat } from "fs-extr
 import c from 'ansi-colors';
 import equal from 'deep-equal';
 import { Source, Config, Package, Changes, SourceChanges } from './types';
+import semver from 'semver'
 
 /** The name of the file in which we store a record of the changes we've made. */
 const CHANGES_FILE = ".update-template-changes.json";
@@ -190,13 +191,13 @@ async function findTemplateSource(urlOrPath: string): Promise<Source | undefined
 function applyPackageChanges(target: Package, template: Package, config: Config, previousChanges: SourceChanges | undefined, changes: SourceChanges): Package {
   const result: Package = { ...target };
 
-  function applyObjectChange(key: string) {
+  function applyObjectChange(key: string, combine?: CombineFunction) {
     if (!template[key]) {
       console.log(c.yellow.bold(`  Package is missing "${key}"`))
       return
     }
     changes.package[key] = template[key];
-    result[key] = combineRecords(target[key], template[key]);
+    result[key] = combineRecords(target[key], template[key], combine);
 
     if (previousChanges && previousChanges.package[key] && template[key]) {
       for (const subkey of Object.keys(template[key])) {
@@ -210,19 +211,19 @@ function applyPackageChanges(target: Package, template: Package, config: Config,
   }
 
   if (config.package?.engines) {
-    applyObjectChange("engines");
+    applyObjectChange("engines", combineChoosingLatest);
   }
   if (config.npmDependencies || config.package?.dependencies) {
-    applyObjectChange("dependencies");
+    applyObjectChange("dependencies", combineChoosingLatest);
   }
   if (config.package?.devDependencies) {
-    applyObjectChange("devDependencies");
+    applyObjectChange("devDependencies", combineChoosingLatest);
   }
   if (config.package?.optionalDependencies) {
-    applyObjectChange("optionalDependencies");
+    applyObjectChange("optionalDependencies", combineChoosingLatest);
   }
   if (config.package?.peerDependencies) {
-    applyObjectChange("peerDependencies");
+    applyObjectChange("peerDependencies", combineChoosingLatest);
   }
   if (config.npmScripts || config.package?.scripts) {
     applyObjectChange("scripts");
@@ -262,19 +263,57 @@ function undoPackageChanges(target: Package, template: Package): Package {
   return result;
 }
 
-function combineRecords(existing: Record<string, string>, template: Record<string, string>): Record<string, string> {
+type CombineFunction = (existingValue: string | undefined, newValue: string) => string
+const DEFAULT_COMBINE: CombineFunction = (existingValue, newValue) => newValue
+
+function combineChoosingLatest(existingValue: string | undefined, newValue: string): string {
+  if (!existingValue || existingValue === newValue) {
+    return newValue
+  }
+
+  if (!semver.validRange(existingValue) && semver.validRange(newValue)) {
+    /* The existing value is not semver while the new is, so we'll retain the existing */
+    return existingValue
+  }
+
+  if (!semver.validRange(existingValue) || !semver.validRange(newValue)) {
+    /* Neither are semver, so we'll use the new value as we cannot compare */
+    return newValue
+  }
+
+  const minExistingVersion = semver.minVersion(existingValue)
+  const minNewVersion = semver.minVersion(newValue)
+
+  if (!minExistingVersion || !minNewVersion) {
+    /* Neither are semver, so we'll use the new value as we cannot compare */
+    return newValue
+  }
+
+  if (minNewVersion.compare(minExistingVersion) > 0) {
+    return newValue
+  } else {
+    return existingValue
+  }
+}
+
+function combineRecords(existing: Record<string, string>, template: Record<string, string>, combine: CombineFunction = DEFAULT_COMBINE): Record<string, string> {
   if (typeof existing !== "object") {
     if (typeof template !== "object") {
       return existing
     } else {
       return template
     }
+  } else if (typeof template !== "object") {
+    return existing
   }
 
   const combined = {
     ...existing,
-    ...template,
   };
+  for (const key of Object.keys(template)) {
+    combined[key] = combine(combined[key], template[key])
+  }
+
   const ordered: Record<string, string> = {};
   Object.keys(combined)
     .sort()
