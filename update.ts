@@ -191,6 +191,10 @@ function applyPackageChanges(target: Package, template: Package, config: Config,
   const result: Package = { ...target };
 
   function applyObjectChange(key: string) {
+    if (!template[key]) {
+      console.log(c.yellow.bold(`  Package is missing "${key}"`))
+      return
+    }
     changes.package[key] = template[key];
     result[key] = combineRecords(target[key], template[key]);
 
