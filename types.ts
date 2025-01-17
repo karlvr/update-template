@@ -1,34 +1,34 @@
 export interface Source {
-	name: string;
-	path: string;
-	temporary: boolean;
-	config: Config;
+	name: string
+	path: string
+	temporary: boolean
+	config: Config
 }
 
 export interface Config {
-	files?: string[];
-	removeFiles?: string[];
-	npmDependencies?: boolean;
-	npmScripts?: boolean;
+	files?: string[]
+	removeFiles?: string[]
+	npmDependencies?: boolean
+	npmScripts?: boolean
 	package?: {
-		engines?: boolean;
-		dependencies?: boolean;
+		engines?: boolean
+		dependencies?: boolean
 		devDependencies?: boolean
-		optionalDependencies?: boolean;
-		peerDependencies?: boolean;
-		scripts?: boolean;
+		optionalDependencies?: boolean
+		peerDependencies?: boolean
+		scripts?: boolean
 	}
 }
 
-export type Package = Record<string, any>;
+export type Package = Record<string, unknown>
 
 export interface Changes {
 	sources: {
-		[path: string]: SourceChanges | undefined;
-	};
+		[path: string]: SourceChanges | undefined
+	}
 }
 
 export interface SourceChanges {
-	files: string[];
-	package: Package;
+	files: string[]
+	package: Package
 }
