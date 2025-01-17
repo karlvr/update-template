@@ -25,7 +25,7 @@ export const update = async (): Promise<number> => {
       }
       sources.push(source)
     } catch (error) {
-      console.error(c.red.bold(`${sourcePath}: ${error.message}`));
+      console.error(c.red.bold(`${sourcePath}: ${error instanceof Error ? error.message : error}`));
       return 1;
     }
   }
