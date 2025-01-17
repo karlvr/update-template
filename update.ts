@@ -12,10 +12,44 @@ const { readJson, copyFile, remove, ensureFile, writeFile, stat } = fsExtra
 /** The name of the file in which we store a record of the changes we've made. */
 const CHANGES_FILE = '.update-template-changes.json'
 
+type UpdateMode = 'replace' | 'add' | 'delete'
+
 export const update = async(): Promise<number> => {
 	const previousChanges = await loadPreviousChanges()
 
-	const sourcePaths = findSourcePaths(process.argv.slice(2), previousChanges)
+	const args = process.argv.slice(2)
+	let mode: UpdateMode = 'replace'
+	if (args[0] === '-a') {
+		mode = 'add'
+		args.shift()
+	} else if (args[0] === '-d') {
+		mode = 'delete'
+		args.shift()
+	}
+
+	const previousPaths = Object.keys(previousChanges.sources)
+	let sourcePaths: string[]
+	if (mode === 'add') {
+		sourcePaths = [...previousPaths, ...args]
+	} else if (mode === 'delete') {
+		sourcePaths = [...previousPaths]
+		for (const toDelete of args) {
+			const index = sourcePaths.indexOf(toDelete)
+			if (index !== -1) {
+				sourcePaths.splice(index, 1)
+			}
+		}
+	} else if (mode === 'replace') {
+		if (args.length === 0) {
+			/* If no paths are specified, update the templates already applied */
+			sourcePaths = [...previousPaths]
+		} else {
+			sourcePaths = args
+		}
+	} else {
+		throw new Error(`Invalid mode: ${mode}`)
+	}
+
 	const sources: Source[] = []
 
 	/* Load sources */
@@ -131,13 +165,6 @@ export const update = async(): Promise<number> => {
 	)
 
 	return 0
-}
-
-function findSourcePaths(argv: string[], previousChanges: Changes): string[] {
-	if (argv.length > 0) {
-		return argv
-	}
-	return Object.keys(previousChanges.sources)
 }
 
 async function cloneRepo(repoUrl: string): Promise<Source | undefined> {

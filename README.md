@@ -6,7 +6,7 @@ If you've created a repository using a template (see [Creating a repository from
 
 ### Using a template
 
-If your template is a git repostiroy, you can install or update it using the URL of the original template repo:
+If your template is a git repository, you can install or update it using the URL of the original template repo:
 
 ```bash
 npx update-template https://github.com/user/repo
@@ -25,8 +25,11 @@ npx update-template ./templates/my-template1 ./templates/my-template2
 ```
 
 A `.update-template-changes.json` file will be created to store the changes that have been made by the
-template(s), so that when you re-run `update-template` any files or dependencies etc added by the template,
-but that are no longer in the template, will be removed.
+template(s), so that when you re-run `update-template` any files or dependencies etc added by the template
+that are no longer in the template will be removed.
+
+You can add a `-a` option before the template paths to add the listed templates to the existing templates (rather than replacing).
+Or you can add a `-d` option before the template paths to remove the listed templates.
 
 ### Creating a template
 
