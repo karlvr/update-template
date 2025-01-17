@@ -30,13 +30,22 @@ export const update = async(): Promise<number> => {
 	const previousPaths = Object.keys(previousChanges.sources)
 	let sourcePaths: string[]
 	if (mode === 'add') {
-		sourcePaths = [...previousPaths, ...args]
+		sourcePaths = [...previousPaths]
+		for (const toAdd of args) {
+			if (sourcePaths.indexOf(toAdd) === -1) {
+				sourcePaths.push(toAdd)
+			}
+		}
 	} else if (mode === 'delete') {
 		sourcePaths = [...previousPaths]
 		for (const toDelete of args) {
-			const index = sourcePaths.indexOf(toDelete)
-			if (index !== -1) {
-				sourcePaths.splice(index, 1)
+			while (true) {
+				const index = sourcePaths.indexOf(toDelete)
+				if (index !== -1) {
+					sourcePaths.splice(index, 1)
+				} else {
+					break
+				}
 			}
 		}
 	} else if (mode === 'replace') {
