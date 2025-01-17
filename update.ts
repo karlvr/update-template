@@ -1,11 +1,13 @@
 import { execSync } from 'child_process'
 import { join } from 'path'
 import fg from 'fast-glob'
-import { readJson, copyFile, remove, ensureFile, writeFile, stat } from 'fs-extra'
+import fsExtra from 'fs-extra'
 import c from 'ansi-colors'
 import equal from 'deep-equal'
-import { Source, Config, Package, Changes, SourceChanges } from './types'
+import type { Source, Config, Package, Changes, SourceChanges } from './types.js'
 import semver from 'semver'
+
+const { readJson, copyFile, remove, ensureFile, writeFile, stat } = fsExtra
 
 /** The name of the file in which we store a record of the changes we've made. */
 const CHANGES_FILE = '.update-template-changes.json'

@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "target": "esnext",
-    "module": "commonjs",
+    "module": "NodeNext",
     "lib": ["dom", "esnext"],
     "strict": true,
     "sourceMap": true,
