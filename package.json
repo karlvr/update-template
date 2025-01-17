@@ -1,6 +1,6 @@
 {
   "name": "@cactuslab/update-template",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Easily update repos created with GitHub or local templates",
   "type": "module",
   "main": "dist/index.js",
