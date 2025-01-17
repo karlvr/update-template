@@ -2,6 +2,7 @@
   "name": "@cactuslab/update-template",
   "version": "2.1.0",
   "description": "Easily update repos created with GitHub or local templates",
+  "type": "module",
   "main": "dist/index.js",
   "bin": "dist/cli.js",
   "types": "dist/index.d.ts",
@@ -11,6 +12,7 @@
   "scripts": {
     "build": "tsc",
     "prepublish": "npm run build",
+    "lint": "eslint",
     "start": "ts-node update.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "tsc --watch"
@@ -44,15 +46,20 @@
   },
   "homepage": "https://github.com/karlvr/update-template#readme",
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@semantic-release/git": "^10.0.1",
+    "@stylistic/eslint-plugin": "^2.13.0",
     "@types/deep-equal": "^1.0.4",
     "@types/fs-extra": "^11.0.4",
     "@types/recursive-readdir": "^2.2.4",
     "@types/semver": "^7.5.8",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
     "semantic-release": "^24.2.1",
     "semantic-release-gitmoji": "^1.6.8",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
   },
   "dependencies": {
     "ansi-colors": "^4.1.3",
